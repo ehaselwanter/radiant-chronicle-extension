@@ -28,6 +28,29 @@ Given /^I have a (.*) page with a draft$/ do |status|
   @page.reload
 end
 
+Given /^I have a page with more than one version$/ do
+  Given "I have a published page with a draft"
+  @page.status = Status[:published]
+  @page.title = @page.title += " Version 2"
+  @page.save
+end
+
+Given /^I have a snippet with more than one version$/ do
+  @snippet = snippets(:first)
+  @snippet.save # version 1
+  @snippet.status = Status[:published]
+  @snippet.name = @snippet.name += "_version_2"
+  @snippet.save # version 2
+end
+
+Given /^I have a layout with more than one version$/ do
+  @layout = layouts(:main)
+  @layout.save # version 1
+  @layout.status = Status[:published]
+  @layout.name = @layout.name += " Version 2"
+  @layout.save # version 2
+end
+
 When /^I edit the page$/ do
   visit admin_pages_path
   click_link @page.title
@@ -39,10 +62,41 @@ When /^I save it as (?:a )?(draft|published)$/ do |status|
   click_button "Save"
 end
 
+When /^I click the revert button$/ do
+  click_button "Revert to Version 1"
+end
+
+When /^I edit a previous page version$/ do
+  visit edit_admin_page_path(:id => @page.id, :version => 1)
+end
+
+When /^I edit a previous snippet version$/ do
+  visit edit_admin_snippet_path(:id => @snippet.id, :version => 1)
+end
+
+When /^I edit a previous layout version$/ do
+  visit edit_admin_layout_path(:id => @layout.id, :version => 1)
+end
+
+Then /^I should be taken to the edit page$/ do
+  request.params["version"].should == "1"
+  request.params["action"].should == "edit"
+end
+
+Then /^the older (.+) content should be loaded$/ do |model|
+  case model
+  when "page"
+    field_labeled("Page Title").value.should_not == @page.current.title
+  when "snippet"
+    field_labeled("Name").value.should_not == @snippet.current.name
+  when "layout"
+    field_labeled("Name").value.should_not == @layout.current.name
+  end
+end
+
 Then /^the content I am editing should be the draft$/ do
   field_labeled("Page Title").value.should =~ /.+ Draft/
 end
-
 
 Then /^the page should be saved$/ do
   @page.current.title.should == "Edited"
@@ -56,10 +110,10 @@ Then /^change the live version$/ do
   @page.reload.title.should == "Edited"
 end
 
-Given /^I have a page with more than one version$/ do
-  Given "I have a published page with a draft"
-  @page.status = Status[:published]
-  @page.save
+When /^I view a previous version$/ do
+  visit admin_versions_path
+  click_link "Version 1"
+  @current_version = 1
 end
 
 When /^I view a version$/ do
